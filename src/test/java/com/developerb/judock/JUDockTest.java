@@ -1,6 +1,5 @@
 package com.developerb.judock;
 
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -35,15 +34,15 @@ public class JUDockTest {
                 .exec();
 
 
-        System.out.println("Attempting to connect to MySQL on port " + localPort);
+        log.info("Waiting for MySQL to become available on port {}", localPort);
 
-        try (Connection connection = getConnection(localPort)) {
+        try (Connection connection = waitForConnection(localPort)) {
             log.info("Got connection: " + connection);
             assertNotNull(connection);
         }
     }
 
-    private Connection getConnection(int port) throws Exception {
+    private Connection waitForConnection(int port) throws Exception {
         int retries = 30;
 
         while (true) {
