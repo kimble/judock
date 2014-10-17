@@ -1,33 +1,44 @@
 package com.developerb.judock;
 
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 
 import static org.junit.Assert.assertNotNull;
 
-public class JUDockTest extends JUDock {
+public class JUDockTest {
+
+    private final static Logger log = LoggerFactory.getLogger(JUDockTest.class);
+
+
+    @Rule
+    public JUDock jd = new JUDock();
+
 
     @Test
-    public void experimenting() throws Exception {
-        final String containerId = createContainerCommand("tutum/mysql:5.6")
+    public void startDatabaseServerAndConnectToIt() throws Exception {
+        final String containerId = jd.createContainerCommand("tutum/mysql:5.6")
                 .withEnv("MYSQL_PASS=qwerty123")
                 .exec()
                 .getId();
 
 
-        int localPort = availableTcpPort();
+        int localPort = jd.availableTcpPort();
 
-        startContainerCommand(containerId)
-                .withPortBindings(tcpPortBindings(localPort + ":3306"))
+        jd.startContainerCommand(containerId)
+                .withPortBindings(jd.tcpPortBindings(localPort + ":3306"))
                 .exec();
 
 
         System.out.println("Attempting to connect to MySQL on port " + localPort);
 
         try (Connection connection = getConnection(localPort)) {
-            System.out.println("Got connection: " + connection);
+            log.info("Got connection: " + connection);
             assertNotNull(connection);
         }
     }

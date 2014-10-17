@@ -7,7 +7,9 @@ import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
-import org.junit.After;
+import org.junit.rules.TestRule;
+import org.junit.runner.Description;
+import org.junit.runners.model.Statement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,33 +20,32 @@ import java.util.List;
 
 /**
  * Integration testing with Docker.
- * 
+ *
  * @author Kim A. Betti
  */
-public class JUDock {
+public class JUDock implements TestRule {
 
     private final static Logger log = LoggerFactory.getLogger(JUDock.class);
 
-    protected final DockerClient client;
 
     private final List<Runnable> cleanupTasks = new ArrayList<>();
+    private final DockerClientConfig.DockerClientConfigBuilder configuration;
+    private DockerClient client;
+
 
     public JUDock() {
-        this.client = provideDockerClient();
+        this(DockerClientConfig.createDefaultConfigBuilder()
+                .withUri("http://localhost:2375")
+                .withLoggingFilter(false));
     }
 
-
-    private DockerClient provideDockerClient() {
-        DockerClientConfig.DockerClientConfigBuilder configBuilder = DockerClientConfig.createDefaultConfigBuilder()
-            .withUri("http://localhost:2375")
-            .withLoggingFilter(false);
-
-        changeClientConfiguration(configBuilder);
-
-        DockerClientConfig config = configBuilder.build();
-        return DockerClientBuilder.getInstance(config).build();
+    public JUDock(DockerClientConfig.DockerClientConfigBuilder configuration) {
+        this.configuration = configuration;
     }
 
+    public DockerClient client() {
+        return client;
+    }
 
     protected CreateContainerCmd createContainerCommand(String image) {
         return client.createContainerCmd(image);
@@ -56,15 +57,6 @@ public class JUDock {
 
         return client.startContainerCmd(containerId);
     }
-
-    /**
-     * Override this if you want to change any part of
-     * the Docker client configuration.
-     *
-     * @param config add your configuration to this instance
-     */
-    protected void changeClientConfiguration(DockerClientConfig.DockerClientConfigBuilder config) { }
-
 
     protected int availableTcpPort() throws IOException {
         ServerSocket socket = new ServerSocket(0);
@@ -88,20 +80,50 @@ public class JUDock {
         return portBindings;
     }
 
-    @After
-    public final void closeClient() throws IOException {
-        for (Runnable cleanupTask : cleanupTasks) {
-            try {
-                log.info(cleanupTask.toString());
-                cleanupTask.run();
-            }
-            catch (RuntimeException ex) {
-                log.error("Cleanup task failed {}", cleanupTask, ex);
-            }
-        }
 
-        client.close();
+    @Override
+    public Statement apply(final Statement base, Description description) {
+        return new Statement() {
+
+            @Override
+            public void evaluate() throws Throwable {
+                createClient();
+
+                try {
+                    base.evaluate();
+                }
+                finally {
+                    runCleanup();
+                }
+            }
+
+            private void createClient() {
+                final DockerClientConfig config = configuration.build();
+                client = DockerClientBuilder.getInstance(config).build();
+            }
+
+            private void runCleanup() throws IOException {
+                for (Runnable cleanupTask : cleanupTasks) {
+                    try {
+                        log.info(cleanupTask.toString());
+                        cleanupTask.run();
+                    }
+                    catch (RuntimeException ex) {
+                        log.error("Cleanup task failed {}", cleanupTask, ex);
+                    }
+                }
+
+                closeClient();
+            }
+
+            private void closeClient() throws IOException {
+                client.close();
+                client = null;
+            }
+
+        };
     }
+
 
 
 
