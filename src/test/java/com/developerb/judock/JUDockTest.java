@@ -27,16 +27,15 @@ public class JUDockTest {
                 .getId();
 
 
-        int localPort = jd.availableTcpPort();
-
         jd.startContainerCommand(containerId)
-                .withPortBindings(jd.tcpPortBindings(localPort + ":3306"))
+                .withPublishAllPorts(true)
                 .exec();
 
+        int hostPort = jd.localPort(containerId, 3306);
 
-        log.info("Waiting for MySQL to become available on port {}", localPort);
+        log.info("Waiting for MySQL to become available on port {}", hostPort);
 
-        try (Connection connection = waitForConnection(localPort)) {
+        try (Connection connection = waitForConnection(hostPort)) {
             log.info("Got connection: " + connection);
             assertNotNull(connection);
         }

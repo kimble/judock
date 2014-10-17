@@ -2,6 +2,7 @@ package com.developerb.judock;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerCmd;
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.command.StartContainerCmd;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.Ports;
@@ -17,6 +18,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Integration testing with Docker.
@@ -56,14 +58,6 @@ public class JUDock implements TestRule {
         cleanupTasks.add(new RemoveContainer(containerId));
 
         return client.startContainerCmd(containerId);
-    }
-
-    protected int availableTcpPort() throws IOException {
-        ServerSocket socket = new ServerSocket(0);
-        int port = socket.getLocalPort();
-        socket.close();
-
-        return port;
     }
 
     protected Ports tcpPortBindings(String... formatted) {
@@ -124,7 +118,23 @@ public class JUDock implements TestRule {
         };
     }
 
+    public int localPort(String containerId, int exposedPort) {
+        InspectContainerResponse response = client.inspectContainerCmd(containerId).exec();
 
+        final Ports ports = response
+                .getNetworkSettings()
+                .getPorts();
+
+        Map<ExposedPort, Ports.Binding> bindings = ports.getBindings();
+        Ports.Binding binding = bindings.get(ExposedPort.tcp(exposedPort));
+
+        if (binding != null) {
+            return binding.getHostPort();
+        }
+        else {
+            throw new IllegalStateException("Unable to determine binding for " + exposedPort);
+        }
+    }
 
 
     private class StopContainer implements Runnable {
