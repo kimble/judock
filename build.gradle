@@ -1,0 +1,13 @@
+apply plugin: 'java'
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+    compile 'com.github.docker-java:docker-java:0.10.2',
+            'junit:junit:4.11'
+
+    testCompile 'org.slf4j:slf4j-simple:1.7.7',
+                'mysql:mysql-connector-java:5.1.33'
+}
