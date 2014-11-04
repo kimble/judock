@@ -9,16 +9,13 @@ import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 import com.google.common.base.Preconditions;
-import org.junit.rules.TestRule;
-import org.junit.runner.Description;
-import org.junit.runners.model.Statement;
+import org.junit.rules.ExternalResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -26,7 +23,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author Kim A. Betti
  */
-public class JUDock implements TestRule {
+public class JUDock extends ExternalResource {
 
     private final static Logger log = LoggerFactory.getLogger(JUDock.class);
 
@@ -49,11 +46,6 @@ public class JUDock implements TestRule {
 
     public DockerClient client() {
         return client;
-    }
-
-    public String getIpAddress(String containerId) {
-        InspectContainerResponse response = client.inspectContainerCmd(containerId).exec();
-        return response.getNetworkSettings().getIpAddress();
     }
 
     protected CreateContainerCmd createContainerCommand(String image) {
@@ -81,67 +73,35 @@ public class JUDock implements TestRule {
         return portBindings;
     }
 
+    @Override
+    protected void before() throws Throwable {
+        final DockerClientConfig config = configuration.build();
+        client = DockerClientBuilder.getInstance(config).build();
+    }
 
     @Override
-    public Statement apply(final Statement base, Description description) {
-        return new Statement() {
-
-            @Override
-            public void evaluate() throws Throwable {
-                createClient();
-
-                try {
-                    base.evaluate();
-                }
-                finally {
-                    runCleanup();
-                }
+    protected void after() {
+        for (Runnable cleanupTask : cleanupTasks) {
+            try {
+                log.info(cleanupTask.toString());
+                cleanupTask.run();
             }
-
-            private void createClient() {
-                final DockerClientConfig config = configuration.build();
-                client = DockerClientBuilder.getInstance(config).build();
+            catch (RuntimeException ex) {
+                log.error("Cleanup task failed {}", cleanupTask, ex);
             }
+        }
 
-            private void runCleanup() throws IOException {
-                for (Runnable cleanupTask : cleanupTasks) {
-                    try {
-                        log.info(cleanupTask.toString());
-                        cleanupTask.run();
-                    }
-                    catch (RuntimeException ex) {
-                        log.error("Cleanup task failed {}", cleanupTask, ex);
-                    }
-                }
 
-                closeClient();
-            }
-
-            private void closeClient() throws IOException {
+        try {
+            if (client != null) {
                 client.close();
-                client = null;
             }
-
-        };
-    }
-
-    public int localPort(String containerId, int exposedPort) {
-        InspectContainerResponse response = client.inspectContainerCmd(containerId).exec();
-
-        final Ports ports = response
-                .getNetworkSettings()
-                .getPorts();
-
-        Map<ExposedPort, Ports.Binding> bindings = ports.getBindings();
-        Ports.Binding binding = bindings.get(ExposedPort.tcp(exposedPort));
-
-        if (binding != null) {
-            return binding.getHostPort();
         }
-        else {
-            throw new IllegalStateException("Unable to determine binding for " + exposedPort);
+        catch (IOException ex) {
+            log.warn("Failed to close client");
         }
     }
+
 
 
     public interface Predicate {
