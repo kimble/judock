@@ -48,18 +48,18 @@ public class JUDock extends ExternalResource {
         return client;
     }
 
-    protected CreateContainerCmd createContainerCommand(String image) {
+    public CreateContainerCmd createContainerCommand(String image) {
         return client.createContainerCmd(image);
     }
 
-    protected StartContainerCmd startContainerCommand(String containerId) {
+    public StartContainerCmd startContainerCommand(String containerId) {
         cleanupTasks.add(new StopContainer(containerId));
         cleanupTasks.add(new RemoveContainer(containerId));
 
         return client.startContainerCmd(containerId);
     }
 
-    protected Ports tcpPortBindings(String... formatted) {
+    public Ports tcpPortBindings(String... formatted) {
         final Ports portBindings = new Ports();
 
         for (String format : formatted) {
