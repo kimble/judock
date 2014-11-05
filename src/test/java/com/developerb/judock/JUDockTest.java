@@ -5,6 +5,7 @@ import org.junit.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.util.concurrent.TimeUnit;
 
 public class JUDockTest {
 
@@ -25,7 +26,7 @@ public class JUDockTest {
                 mysql.getIpAddress()
         );
 
-        mysql.waitFor(readyPredicate);
+        mysql.waitFor(10, TimeUnit.SECONDS, readyPredicate);
     }
 
 

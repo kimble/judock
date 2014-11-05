@@ -8,12 +8,17 @@ import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
+import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
+import com.google.common.io.ByteStreams;
+import com.google.common.io.CharStreams;
 import org.junit.rules.ExternalResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -191,6 +196,18 @@ public class JUDock extends ExternalResource {
             waitFor(60, TimeUnit.SECONDS, predicate);
         }
 
+        public String tailLinesOfLog(int lines) throws IOException {
+            try (InputStream stream = client.logContainerCmd(id)
+                    .withTail(lines)
+                    .withStdErr()
+                    .withStdOut()
+                    .exec()) {
+
+                byte[] bytes = ByteStreams.toByteArray(stream);
+                return new String(bytes, Charsets.UTF_8);
+            }
+        }
+
         public void waitFor(int duration, TimeUnit unit, Predicate predicate) throws InterruptedException {
             long cutoff = System.currentTimeMillis() + unit.toMillis(duration);
 
@@ -204,7 +221,15 @@ public class JUDock extends ExternalResource {
                 }
             }
 
-            throw new IllegalStateException("Container " + id + " never reached 'running' before timeout, but " + inspect().getState());
+            try {
+                String logs = tailLinesOfLog(100);
+                throw new IllegalStateException("Container " + id + " never reached 'running' before timeout, but " + inspect().getState()
+                        + ". Following is the latest output from the container:\n" + logs);
+            }
+            catch (IOException e) {
+                throw new IllegalStateException("Container " + id + " never reached 'running' before timeout, but " + inspect().getState()
+                        + ". Unable to grad output from the container.");
+            }
         }
 
         public String getIpAddress() {
