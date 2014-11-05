@@ -11,14 +11,12 @@ import com.github.dockerjava.core.DockerClientConfig;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
-import com.google.common.io.CharStreams;
 import org.junit.rules.ExternalResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -184,6 +182,7 @@ public class JUDock extends ExternalResource {
         }
 
         public Container startContainer() {
+            log.info("Starting {}", id);
             createStartCommand().exec();
             return this;
         }
@@ -194,6 +193,16 @@ public class JUDock extends ExternalResource {
 
         public void waitFor(Predicate predicate) throws InterruptedException {
             waitFor(60, TimeUnit.SECONDS, predicate);
+        }
+
+        public void pause() {
+            log.info("Pausing {}", id);
+            client.pauseContainerCmd(id).exec();
+        }
+
+        public void unPause() {
+            log.info("Un-pausing {}", id);
+            client.unpauseContainerCmd(id).exec();
         }
 
         public String tailLinesOfLog(int lines) throws IOException {
@@ -209,11 +218,13 @@ public class JUDock extends ExternalResource {
         }
 
         public void waitFor(int duration, TimeUnit unit, Predicate predicate) throws InterruptedException {
-            long cutoff = System.currentTimeMillis() + unit.toMillis(duration);
+            long startedAt = System.currentTimeMillis();
+            long cutoff = startedAt + unit.toMillis(duration);
 
             log.info("Waiting for: {}", predicate);
             while (System.currentTimeMillis() < cutoff) {
                 if (predicate.isOkay()) {
+                    log.info("{} became available after {}ms", id, System.currentTimeMillis() - startedAt);
                     return;
                 }
                 else {
@@ -239,7 +250,6 @@ public class JUDock extends ExternalResource {
         public InspectContainerResponse inspect() {
             return client.inspectContainerCmd(id).exec();
         }
-
 
         public String id() {
             return id;
