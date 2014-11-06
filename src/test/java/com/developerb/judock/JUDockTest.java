@@ -1,86 +1,68 @@
 package com.developerb.judock;
 
+import com.spotify.docker.client.messages.ContainerConfig;
 import org.junit.Rule;
 import org.junit.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.joda.time.Duration.standardSeconds;
 
 public class JUDockTest {
-
-    @Test
-    public void startDatabaseServerAndConnectToIt() throws Exception {
-        final String containerId = jd.createContainerCommand("tutum/mysql:5.6")
-                .withEnv("MYSQL_PASS=qwerty123")
-                .exec()
-                .getId();
-
-        JUDock.Container mysql = jd.createTestContainer(containerId);
-        mysql.startContainer();
-
-        MySQLReadyPredicate readyPredicate = new MySQLReadyPredicate (
-                mysql.getIpAddress()
-        );
-
-        mysql.waitFor(readyPredicate);
-    }
-
-    @Test
-    public void pauseAndUnPauseRunningContainer() throws Exception {
-        final String containerId = jd.createContainerCommand("tutum/mysql:5.6")
-                .withEnv("MYSQL_PASS=qwerty123")
-                .exec()
-                .getId();
-
-        JUDock.Container mysql = jd.createTestContainer(containerId);
-        mysql.startContainer();
-
-        MySQLReadyPredicate readyPredicate = new MySQLReadyPredicate (
-                mysql.getIpAddress()
-        );
-
-        mysql.waitFor(30, TimeUnit.SECONDS, readyPredicate);
-
-        assertTrue("Should be able to connect", readyPredicate.isOkay());
-
-        mysql.pause();
-
-        assertFalse("Should not be allowed to connect while paused", readyPredicate.isOkay());
-
-        mysql.unPause();
-
-        assertTrue("Should be able to connect after un-pausing", readyPredicate.isOkay());
-    }
 
     @Rule
     public JUDock jd = new JUDock();
 
+    @Test
+    public void startDatabaseServerAndConnectToIt() throws Exception {
+        ContainerConfig containerConfiguration = jd.createContainerConfig("tutum/mysql:5.6")
+                .env("MYSQL_PASS=qwerty123")
+                .build();
+
+        JUDock.Container mysql = jd.replaceOrCreateContainer(containerConfiguration, "mysql-test-container");
+        mysql.startContainer();
+
+        {
+            MySQLReadyPredicate readyPredicate = new MySQLReadyPredicate(mysql);
+            mysql.waitFor(standardSeconds(60), readyPredicate);
+        }
+    }
+
+
 
     static class MySQLReadyPredicate implements JUDock.Predicate {
 
-        private final String ipAddress;
+        private final JUDock.Container container;
 
-        MySQLReadyPredicate(String ipAddress) {
-            this.ipAddress = ipAddress;
+        MySQLReadyPredicate(JUDock.Container container) {
+            this.container = container;
         }
 
         @Override
         public boolean isOkay() {
-            try (Connection connection = DriverManager.getConnection("jdbc:mysql://" + ipAddress + ":3306?connectTimeout=1000&socketTimeout=1000", "admin", "qwerty123")) {
-                return connection != null;
+            try {
+                final String connectionUri = String.format("jdbc:mysql://%s:3306?connectTimeout=1000&socketTimeout=1000", container.getIpAddress());
+                try (Connection connection = DriverManager.getConnection(connectionUri, "admin", "qwerty123")) {
+                    return connection != null;
+                }
+                catch (Exception ex) {
+                    return false;
+                }
             }
-            catch (Exception ex) {
+            catch (Exception ignored) {
                 return false;
             }
         }
 
         @Override
         public String toString() {
-            return String.format("MySQL to become available on %s:3306", ipAddress);
+            try {
+                return String.format("MySQL to become available on %s:3306", container.getIpAddress());
+            }
+            catch (Exception ex) {
+                return "Unable to determine container ip address";
+            }
         }
 
     }

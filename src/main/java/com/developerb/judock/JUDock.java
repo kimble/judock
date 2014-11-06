@@ -1,25 +1,26 @@
 package com.developerb.judock;
 
-import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.CreateContainerCmd;
-import com.github.dockerjava.api.command.InspectContainerResponse;
-import com.github.dockerjava.api.command.StartContainerCmd;
-import com.github.dockerjava.api.model.ExposedPort;
-import com.github.dockerjava.api.model.Ports;
-import com.github.dockerjava.core.DockerClientBuilder;
-import com.github.dockerjava.core.DockerClientConfig;
-import com.google.common.base.Charsets;
+
 import com.google.common.base.Preconditions;
-import com.google.common.io.ByteStreams;
+import com.spotify.docker.client.DefaultDockerClient;
+import com.spotify.docker.client.DockerClient;
+import com.spotify.docker.client.DockerException;
+import com.spotify.docker.client.LogStream;
+import com.spotify.docker.client.messages.ContainerConfig;
+import com.spotify.docker.client.messages.ContainerCreation;
+import com.spotify.docker.client.messages.ContainerInfo;
+import com.spotify.docker.client.messages.HostConfig;
+import org.joda.time.Duration;
 import org.junit.rules.ExternalResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import static com.spotify.docker.client.DockerClient.ListContainersParam.allContainers;
+import static com.spotify.docker.client.DockerClient.LogsParameter.*;
 
 /**
  * Integration testing with Docker.
@@ -30,56 +31,55 @@ public class JUDock extends ExternalResource {
 
     private final static Logger log = LoggerFactory.getLogger(JUDock.class);
 
-
     private final List<Runnable> cleanupTasks = new ArrayList<>();
-    private final DockerClientConfig.DockerClientConfigBuilder configuration;
-    private DockerClient client;
+    private DockerClient docker;
 
 
     public JUDock() {
-        this(DockerClientConfig.createDefaultConfigBuilder()
-                .withVersion("1.13")
-                .withUri("http://localhost:2375")
-                .withLoggingFilter(false));
+        this(new DefaultDockerClient("http://localhost:2375"));
     }
 
-    public JUDock(DockerClientConfig.DockerClientConfigBuilder configuration) {
-        this.configuration = configuration;
+    public JUDock(DockerClient docker) {
+        this.docker = docker;
     }
 
     public DockerClient client() {
-        return client;
+        return docker;
     }
 
-    public CreateContainerCmd createContainerCommand(String image) {
-        return client.createContainerCmd(image);
+    public ContainerConfig.Builder createContainerConfig(String image) {
+        return ContainerConfig.builder()
+                .image(image);
     }
 
-    public StartContainerCmd startContainerCommand(String containerId) {
-        cleanupTasks.add(new StopContainer(containerId));
-        cleanupTasks.add(new RemoveContainer(containerId));
 
-        return client.startContainerCmd(containerId);
+    public ContainerCreation createContainer(ContainerConfig containerConfiguration) throws DockerException, InterruptedException {
+        return docker.createContainer(containerConfiguration);
     }
 
-    public Ports tcpPortBindings(String... formatted) {
-        final Ports portBindings = new Ports();
-
-        for (String format : formatted) {
-            String[] split = format.split(":");
-            ExposedPort exposedPort = ExposedPort.tcp(Integer.parseInt(split[1]));
-            Ports.Binding boundPort = Ports.Binding(Integer.parseInt(split[0]));
-
-            portBindings.bind(exposedPort, boundPort);
+    public JUDock.Container replaceOrCreateContainer(ContainerConfig containerConfiguration, String name) throws DockerException, InterruptedException {
+        for (com.spotify.docker.client.messages.Container container : docker.listContainers(allContainers())) {
+            if (container.names().contains("/" + name)) {
+                log.info("Removing existing container {}", container.id());
+                docker.stopContainer(container.id(), 1);
+                docker.removeContainer(container.id(), true);
+            }
         }
 
-        return portBindings;
+        final ContainerCreation creation = docker.createContainer(containerConfiguration, name);
+
+        if (creation.getWarnings() != null) {
+            for (String warning : creation.getWarnings()) {
+                log.warn("Warning occurred while creating container {}: {}", creation.id(), warning);
+            }
+        }
+
+        return new Container(creation.id());
     }
 
     @Override
     protected void before() throws Throwable {
-        final DockerClientConfig config = configuration.build();
-        client = DockerClientBuilder.getInstance(config).build();
+
     }
 
     @Override
@@ -94,14 +94,8 @@ public class JUDock extends ExternalResource {
             }
         }
 
-
-        try {
-            if (client != null) {
-                client.close();
-            }
-        }
-        catch (IOException ex) {
-            log.warn("Failed to close client");
+        if (docker != null) {
+            docker.close();
         }
     }
 
@@ -126,9 +120,7 @@ public class JUDock extends ExternalResource {
         @Override
         public void run() {
             try {
-                client.stopContainerCmd(containerId)
-                        .withTimeout(1)
-                        .exec();
+                docker.stopContainer(containerId, 1);
             }
             catch (Exception ex) {
                 log.error("Failed to shut down container {}", containerId);
@@ -152,9 +144,7 @@ public class JUDock extends ExternalResource {
         @Override
         public void run() {
             try {
-                client.removeContainerCmd(containerId)
-                        .withForce(true)
-                        .exec();
+                docker.removeContainer(containerId, true);
             }
             catch (Exception ex) {
                 log.error("Failed to remove container {}", containerId);
@@ -181,80 +171,80 @@ public class JUDock extends ExternalResource {
             this.id = Preconditions.checkNotNull(id, "ID");
         }
 
-        public Container startContainer() {
+        public Container startContainer() throws DockerException, InterruptedException {
+            return startContainer(HostConfig.builder().build());
+        }
+
+        public Container startContainer(HostConfig hostConfig) throws DockerException, InterruptedException {
             log.info("Starting {}", id);
-            createStartCommand().exec();
+
+            cleanupTasks.add(new StopContainer(id));
+            cleanupTasks.add(new RemoveContainer(id));
+
+            docker.startContainer(id, hostConfig);
             return this;
         }
 
-        public StartContainerCmd createStartCommand() {
-            return startContainerCommand(id);
+        public void waitFor(Predicate predicate) throws InterruptedException, DockerException {
+            waitFor(Duration.standardSeconds(60), predicate);
         }
 
-        public void waitFor(Predicate predicate) throws InterruptedException {
-            waitFor(60, TimeUnit.SECONDS, predicate);
+        public void stopWithin(Duration beforeKilling) throws DockerException, InterruptedException {
+            docker.stopContainer(id, beforeKilling.toStandardSeconds().getSeconds());
         }
 
-        public void pause() {
-            log.info("Pausing {}", id);
-            client.pauseContainerCmd(id).exec();
-        }
 
-        public void unPause() {
-            log.info("Un-pausing {}", id);
-            client.unpauseContainerCmd(id).exec();
-        }
+        public void waitFor(Duration limit, Predicate predicate) throws InterruptedException, DockerException {
+            try (LogStream logStream = docker.logs(id, STDERR, STDOUT, TIMESTAMPS)) {
+                long startedAt = System.currentTimeMillis();
+                long cutoff = startedAt + limit.getMillis();
 
-        public String tailLinesOfLog(int lines) throws IOException {
-            try (InputStream stream = client.logContainerCmd(id)
-                    .withTail(lines)
-                    .withStdErr()
-                    .withStdOut()
-                    .exec()) {
+                log.info("Waiting for: {}", predicate);
+                while (System.currentTimeMillis() < cutoff) {
+                    if (predicate.isOkay()) {
+                        log.info("{} became available after {}ms", id, System.currentTimeMillis() - startedAt);
+                        return;
+                    }
+                    else {
+                        Thread.sleep(1000);
+                    }
+                }
 
-                byte[] bytes = ByteStreams.toByteArray(stream);
-                return new String(bytes, Charsets.UTF_8);
+                final String containerLogs = readLogStream(logStream);
+
+                throw new IllegalStateException("Container " + id + " never reached 'running' before timeout, but " + inspect().state()
+                            + ".\nFollowing is the latest output from the container:\n" + containerLogs);
             }
         }
 
-        public void waitFor(int duration, TimeUnit unit, Predicate predicate) throws InterruptedException {
-            long startedAt = System.currentTimeMillis();
-            long cutoff = startedAt + unit.toMillis(duration);
-
-            log.info("Waiting for: {}", predicate);
-            while (System.currentTimeMillis() < cutoff) {
-                if (predicate.isOkay()) {
-                    log.info("{} became available after {}ms", id, System.currentTimeMillis() - startedAt);
-                    return;
-                }
-                else {
-                    Thread.sleep(200);
-                }
-            }
+        private String readLogStream(LogStream logStream) {
+            String containerLogs = "No log available..";
 
             try {
-                String logs = tailLinesOfLog(100);
-                throw new IllegalStateException("Container " + id + " never reached 'running' before timeout, but " + inspect().getState()
-                        + ". Following is the latest output from the container:\n" + logs);
+                containerLogs = logStream.readFully();
             }
-            catch (IOException e) {
-                throw new IllegalStateException("Container " + id + " never reached 'running' before timeout, but " + inspect().getState()
-                        + ". Unable to grad output from the container.");
+            catch (Exception ex) {
+                log.warn("Failed to grab log output from container " + id, ex);
             }
+            return containerLogs;
         }
 
-        public String getIpAddress() {
-            return inspect().getNetworkSettings().getIpAddress();
+        public String getIpAddress() throws DockerException, InterruptedException {
+            return inspect().networkSettings().ipAddress();
         }
 
-        public InspectContainerResponse inspect() {
-            return client.inspectContainerCmd(id).exec();
+        public ContainerInfo inspect() throws DockerException, InterruptedException {
+            return docker.inspectContainer(id);
         }
 
         public String id() {
             return id;
         }
 
+        @Override
+        public String toString() {
+            return "Container[ID: " + id + "]";
+        }
     }
 
 }
