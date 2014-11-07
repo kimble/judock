@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.spotify.docker.client.DockerClient.ListContainersParam.allContainers;
 import static com.spotify.docker.client.DockerClient.LogsParameter.*;
+import static org.apache.commons.lang.StringUtils.isBlank;
 
 /**
  * Integration testing with Docker.
@@ -234,7 +235,14 @@ public class JUDock extends ExternalResource {
         }
 
         public String getIpAddress() throws DockerException, InterruptedException {
-            return inspect().networkSettings().ipAddress();
+            final String ipAddress = inspect().networkSettings().ipAddress();
+
+            if (isBlank(ipAddress)) {
+                throw new IllegalStateException("Unable to determine ip address");
+            }
+            else {
+                return ipAddress;
+            }
         }
 
         public ContainerInfo inspect() throws DockerException, InterruptedException {
