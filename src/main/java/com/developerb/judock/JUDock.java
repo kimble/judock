@@ -57,6 +57,10 @@ public class JUDock extends ExternalResource {
         return docker.createContainer(containerConfiguration);
     }
 
+    public JUDock.Container replaceOrCreateContainer(String name) throws DockerException, InterruptedException {
+        return replaceOrCreateContainer(ContainerConfig.builder().build(), name);
+    }
+
     public JUDock.Container replaceOrCreateContainer(ContainerConfig containerConfiguration, String name) throws DockerException, InterruptedException {
         for (com.spotify.docker.client.messages.Container container : docker.listContainers(allContainers())) {
             if (container.names().contains("/" + name)) {
