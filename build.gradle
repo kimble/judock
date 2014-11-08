@@ -17,13 +17,13 @@ repositories {
 
 
 group = 'com.developerb.judock'
-version = '0.4.1'
+version = '0.4.8'
 
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
 
 dependencies {
-    compile 'com.spotify:docker-client:2.6.3',
+    compile 'com.spotify:docker-client:2.7.0',
             'joda-time:joda-time:2.5',
             'junit:junit:4.11'
 
