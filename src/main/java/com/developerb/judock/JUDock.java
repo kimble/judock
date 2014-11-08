@@ -91,11 +91,13 @@ public class JUDock extends ExternalResource {
     protected void after() {
         for (Runnable cleanupTask : cleanupTasks) {
             try {
-                log.info(cleanupTask.toString());
+                log.info("Beginning: {}", cleanupTask.toString());
                 cleanupTask.run();
+
+                log.info("Completed: {}", cleanupTask.toString());
             }
             catch (RuntimeException ex) {
-                log.error("Cleanup task failed {}", cleanupTask, ex);
+                log.error("Failed: {}", cleanupTask, ex);
             }
         }
 
