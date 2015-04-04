@@ -83,21 +83,15 @@ public interface ReadyPredicate {
     public static class Context {
 
         private final DateTime started;
-        private final String ipAdress;
 
-        public Context(String ipAddress) throws Exception {
+        public Context() throws Exception {
             this.started = DateTime.now();
-            this.ipAdress = ipAddress;
         }
 
         public boolean runningForMoreThen(long val, TimeUnit unit) {
             Duration other = new Duration(unit.toMillis(val));
             Duration sinceStartup = new Duration(started, DateTime.now());
             return sinceStartup.isLongerThan(other);
-        }
-
-        public String ipAddress() {
-            return ipAdress;
         }
 
     }

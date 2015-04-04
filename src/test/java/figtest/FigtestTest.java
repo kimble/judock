@@ -6,7 +6,10 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 
-
+/**
+ * Example stolen from Fig.
+ * Simple Python web application linked Redis.
+ */
 public class FigtestTest {
 
     @Rule

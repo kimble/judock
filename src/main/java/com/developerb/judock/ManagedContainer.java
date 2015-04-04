@@ -68,7 +68,7 @@ public class ManagedContainer {
 
         log.info("Waiting for the container to boot");
         try (LogStream logStream = docker.logs(containerId, STDERR, STDOUT, TIMESTAMPS)) {
-            ReadyPredicate.Context context = new ReadyPredicate.Context(ipAddress());
+            ReadyPredicate.Context context = new ReadyPredicate.Context();
             Result result = Result.tryAgain(100, MILLISECONDS, "first attempt");
 
             while (!result.shouldBeKilled() && !result.wasSuccessful()) {

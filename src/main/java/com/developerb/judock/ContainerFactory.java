@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 import static com.spotify.docker.client.DockerClient.ListContainersParam.allContainers;
 
 /**
- *
+ * 
  */
 public abstract class ContainerFactory<C extends ManagedContainer> {
 
