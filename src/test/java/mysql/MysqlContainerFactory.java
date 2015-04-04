@@ -5,6 +5,7 @@ import com.developerb.judock.ManagedContainer;
 import com.developerb.judock.ReadyPredicate;
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.messages.ContainerConfig;
+import com.spotify.docker.client.messages.HostConfig;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -12,9 +13,7 @@ import java.sql.DriverManager;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-/**
- * @author Kim A. Betti
- */
+
 public class MysqlContainerFactory extends ContainerFactory<MysqlContainerFactory.Container> {
 
     private static final String container_name = "mysql-test-container";
@@ -29,10 +28,15 @@ public class MysqlContainerFactory extends ContainerFactory<MysqlContainerFactor
     }
 
     @Override
-    public ContainerConfig provideConfiguration(ContainerConfig.Builder configuration) {
-        return configuration.image("tutum/mysql:5.6")
+    public ContainerConfig containerConfiguration(ContainerConfig.Builder cfg) {
+        return cfg.image("tutum/mysql:5.6")
                 .env("MYSQL_PASS=qwerty123")
                 .build();
+    }
+
+    @Override
+    protected HostConfig hostConfiguration(HostConfig.Builder cfg) {
+        return cfg.build();
     }
 
     @Override
@@ -55,16 +59,16 @@ public class MysqlContainerFactory extends ContainerFactory<MysqlContainerFactor
     }
 
     @Override
-    protected Container wrapContainer(DockerClient docker, String containerId) throws Exception {
-        return new Container(docker, containerId);
+    protected Container wrapContainer(DockerClient docker, HostConfig hostConfiguration, String containerId) throws Exception {
+        return new Container(docker, hostConfiguration, containerId);
     }
 
 
 
     public class Container extends ManagedContainer {
 
-        public Container(DockerClient docker, String containerId) throws Exception {
-            super(container_name, docker, containerId);
+        public Container(DockerClient docker, HostConfig hostConfiguration, String containerId) throws Exception {
+            super(container_name, docker, hostConfiguration, containerId);
         }
 
         public Connection open() throws Exception {

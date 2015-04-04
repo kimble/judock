@@ -4,6 +4,7 @@ import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.messages.Container;
 import com.spotify.docker.client.messages.ContainerConfig;
 import com.spotify.docker.client.messages.ContainerCreation;
+import com.spotify.docker.client.messages.HostConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +36,8 @@ public abstract class ContainerFactory<C extends ManagedContainer> {
             }
         }
 
-        final ContainerConfig containerConfiguration = provideConfiguration(ContainerConfig.builder());
+        final ContainerConfig containerConfiguration = containerConfiguration(ContainerConfig.builder());
+        final HostConfig hostConfiguration = hostConfiguration(HostConfig.builder());
         final ContainerCreation creation = docker.createContainer(containerConfiguration, containerName);
 
         if (creation.getWarnings() != null) {
@@ -44,7 +46,7 @@ public abstract class ContainerFactory<C extends ManagedContainer> {
             }
         }
 
-        return wrapContainer(docker, creation.id());
+        return wrapContainer(docker, hostConfiguration, creation.id());
     }
 
     /**
@@ -56,7 +58,9 @@ public abstract class ContainerFactory<C extends ManagedContainer> {
     /**
      * Provide the configuration that will be used to started based upon.
      */
-    protected abstract ContainerConfig provideConfiguration(ContainerConfig.Builder docker);
+    protected abstract ContainerConfig containerConfiguration(ContainerConfig.Builder docker);
+
+    protected abstract HostConfig hostConfiguration(HostConfig.Builder cfg);
 
     /**
      * Will be invoked until the container is ready.
@@ -66,6 +70,6 @@ public abstract class ContainerFactory<C extends ManagedContainer> {
     /**
      * An option to provide client code for functionality exposed by the container.
      */
-    protected abstract C wrapContainer(DockerClient docker, String containerId) throws Exception;
+    protected abstract C wrapContainer(DockerClient docker, HostConfig hostConfiguration, String containerId) throws Exception;
 
 }

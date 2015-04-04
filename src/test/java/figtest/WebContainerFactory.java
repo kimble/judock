@@ -39,8 +39,13 @@ public class WebContainerFactory extends ContainerFactory<WebContainerFactory.Co
     }
 
     @Override
-    protected ContainerConfig provideConfiguration(ContainerConfig.Builder builder) {
+    protected ContainerConfig containerConfiguration(ContainerConfig.Builder builder) {
         return builder.image(imageId).build();
+    }
+
+    @Override
+    protected HostConfig hostConfiguration(HostConfig.Builder cfg) {
+        return cfg.links(redisContainer.containerName() + ":redis").build();
     }
 
     @Override
@@ -68,19 +73,15 @@ public class WebContainerFactory extends ContainerFactory<WebContainerFactory.Co
     }
 
     @Override
-    protected Container wrapContainer(DockerClient docker, String containerId) throws Exception {
-        return new Container(docker, containerId);
+    protected Container wrapContainer(DockerClient docker, HostConfig hostConfiguration, String containerId) throws Exception {
+        return new Container(docker, hostConfiguration, containerId);
     }
+
 
     public class Container extends ManagedContainer {
 
-        public Container(DockerClient docker, String containerId) {
-            super(container_name, docker, containerId);
-        }
-
-        @Override
-        protected HostConfig hostConfig(HostConfig.Builder builder) {
-            return builder.links(redisContainer.containerName() + ":redis").build();
+        public Container(DockerClient docker, HostConfig hostConfiguration, String containerId) {
+            super(container_name, docker, hostConfiguration, containerId);
         }
 
     }

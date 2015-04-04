@@ -30,10 +30,12 @@ public class ManagedContainer {
 
     private final String containerName, containerId;
     private final DockerClient docker;
+    private final HostConfig hostConfiguration;
 
-    public ManagedContainer(String containerName, DockerClient docker, String containerId) {
+    public ManagedContainer(String containerName, DockerClient docker, HostConfig hostConfiguration, String containerId) {
         this.log = LoggerFactory.getLogger("container." + containerName);
 
+        this.hostConfiguration = hostConfiguration;
         this.containerName = containerName;
         this.containerId = containerId;
         this.docker = docker;
@@ -62,7 +64,7 @@ public class ManagedContainer {
 
     public void boot(ReadyPredicate ready) throws Exception {
         log.info("Booting container");
-        docker.startContainer(containerId, hostConfig(HostConfig.builder()));
+        docker.startContainer(containerId, hostConfiguration);
 
         log.info("Waiting for the container to boot");
         try (LogStream logStream = docker.logs(containerId, STDERR, STDOUT, TIMESTAMPS)) {
@@ -92,10 +94,6 @@ public class ManagedContainer {
                         "Following is the latest output from the container:\n%s", containerId, inspect().state(), containerLogs));
             }
         }
-    }
-
-    protected HostConfig hostConfig(HostConfig.Builder builder) {
-        return builder.build();
     }
 
     private String readLogStream(LogStream logStream) {

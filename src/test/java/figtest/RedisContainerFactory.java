@@ -5,7 +5,9 @@ import com.developerb.judock.ManagedContainer;
 import com.developerb.judock.ReadyPredicate;
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.messages.ContainerConfig;
+import com.spotify.docker.client.messages.HostConfig;
 
+import static java.lang.Enum.valueOf;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -26,8 +28,13 @@ public class RedisContainerFactory extends ContainerFactory<RedisContainerFactor
     }
 
     @Override
-    protected ContainerConfig provideConfiguration(ContainerConfig.Builder docker) {
+    protected ContainerConfig containerConfiguration(ContainerConfig.Builder docker) {
         return docker.image("redis:2.8.19").build();
+    }
+
+    @Override
+    protected HostConfig hostConfiguration(HostConfig.Builder cfg) {
+        return cfg.build();
     }
 
     @Override
@@ -40,14 +47,14 @@ public class RedisContainerFactory extends ContainerFactory<RedisContainerFactor
     }
 
     @Override
-    protected RedisContainerFactory.Container wrapContainer(DockerClient docker, String containerId) throws Exception {
-        return new Container(docker, containerId);
+    protected RedisContainerFactory.Container wrapContainer(DockerClient docker, HostConfig hostConfiguration, String containerId) throws Exception {
+        return new Container(docker, hostConfiguration, containerId);
     }
 
     public static class Container extends ManagedContainer {
 
-        public Container(DockerClient docker, String containerId) {
-            super(container_name, docker, containerId);
+        public Container(DockerClient docker, HostConfig hostConfiguration, String containerId) {
+            super(container_name, docker, hostConfiguration, containerId);
         }
 
     }
