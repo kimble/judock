@@ -55,7 +55,7 @@ public class WebContainerFactory extends ContainerFactory<WebContainerFactory.Co
         }
 
         @Override
-        protected void isReady(BootContext context) {
+        protected void isReady(BootProcess context) {
             try {
                 final String html = fetchHtml();
 

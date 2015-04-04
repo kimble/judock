@@ -68,7 +68,9 @@ public abstract class ContainerFactory<C extends ManagedContainer> {
      */
     protected abstract ContainerConfig containerConfiguration(ContainerConfig.Builder docker);
 
-    protected abstract HostConfig hostConfiguration(HostConfig.Builder cfg);
+    protected HostConfig hostConfiguration(HostConfig.Builder cfg) {
+        return cfg.build();
+    }
 
     /**
      * An option to provide client code for functionality exposed by the container.

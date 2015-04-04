@@ -4,7 +4,6 @@ import com.developerb.judock.ContainerFactory;
 import com.developerb.judock.ManagedContainer;
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.messages.ContainerConfig;
-import com.spotify.docker.client.messages.HostConfig;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -32,11 +31,6 @@ public class MysqlContainerFactory extends ContainerFactory<MysqlContainerFactor
     }
 
     @Override
-    protected HostConfig hostConfiguration(HostConfig.Builder cfg) {
-        return cfg.build();
-    }
-
-    @Override
     protected Container wrapContainer(DockerClient docker, String containerId) throws Exception {
         return new Container(docker, containerId);
     }
@@ -50,7 +44,7 @@ public class MysqlContainerFactory extends ContainerFactory<MysqlContainerFactor
         }
 
         @Override
-        protected void isReady(BootContext context) {
+        protected void isReady(BootProcess context) {
             try (Connection connection = open()) {
                 DatabaseMetaData metadata = connection.getMetaData();
                 context.ready("Got connection: " + metadata.getDatabaseProductVersion());

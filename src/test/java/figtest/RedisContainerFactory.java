@@ -4,7 +4,6 @@ import com.developerb.judock.ContainerFactory;
 import com.developerb.judock.ManagedContainer;
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.messages.ContainerConfig;
-import com.spotify.docker.client.messages.HostConfig;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -27,11 +26,6 @@ public class RedisContainerFactory extends ContainerFactory<RedisContainerFactor
     }
 
     @Override
-    protected HostConfig hostConfiguration(HostConfig.Builder cfg) {
-        return cfg.build();
-    }
-
-    @Override
     protected RedisContainerFactory.Container wrapContainer(DockerClient docker, String containerId) throws Exception {
         return new Container(docker, containerId);
     }
@@ -44,7 +38,7 @@ public class RedisContainerFactory extends ContainerFactory<RedisContainerFactor
         }
 
         @Override
-        protected void isReady(BootContext context) {
+        protected void isReady(BootProcess context) {
             if (canConnectTcp(6379)) {
                 context.ready("Could connect on tcp");
             }

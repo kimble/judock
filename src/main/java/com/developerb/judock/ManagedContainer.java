@@ -50,7 +50,7 @@ public abstract class ManagedContainer {
         return containerName;
     }
 
-    protected abstract void isReady(BootContext context);
+    protected abstract void isReady(BootProcess context);
 
     public WebTarget httpTarget() {
         return httpTarget(80);
@@ -65,7 +65,7 @@ public abstract class ManagedContainer {
     public void waitForIt() throws Exception {
         log.info("Waiting for the container to boot");
         try (LogStream logStream = docker.logs(containerId, STDERR, STDOUT, TIMESTAMPS)) {
-            BootContext context = new BootContext();
+            BootProcess context = new BootProcess();
 
 
             while (context.stillWaiting()) {
@@ -175,7 +175,7 @@ public abstract class ManagedContainer {
         }
     }
 
-    public static class BootContext {
+    public static class BootProcess {
 
         private final DateTime started;
 
@@ -184,7 +184,7 @@ public abstract class ManagedContainer {
         private volatile boolean booted;
         private volatile String message;
 
-        public BootContext() throws Exception {
+        public BootProcess() throws Exception {
             this.started = DateTime.now();
         }
 
