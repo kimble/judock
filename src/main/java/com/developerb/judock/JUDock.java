@@ -39,13 +39,22 @@ public class JUDock extends ExternalResource {
     }
 
     public <C extends ManagedContainer> C manage(ContainerFactory<C> containerFactory) throws Exception {
-        C managedContainer = containerFactory.create(docker);
-        cleanupTasks.add(managedContainer::remove);
-
-        managedContainer.boot();
-        cleanupTasks.add(managedContainer::stop);
+        C managedContainer = launch(containerFactory);
+        waitForIt(managedContainer);
 
         return managedContainer;
+    }
+
+    private <C extends ManagedContainer> C launch(ContainerFactory<C> containerFactory) throws Exception {
+        C managedContainer = containerFactory.launch(docker);
+        cleanupTasks.add(managedContainer::remove);
+
+        return managedContainer;
+    }
+
+    private void waitForIt(ManagedContainer managedContainer) throws Exception {
+        managedContainer.waitForIt();
+        cleanupTasks.add(managedContainer::stop);
     }
 
     @Override

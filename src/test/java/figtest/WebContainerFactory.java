@@ -11,18 +11,14 @@ import java.nio.file.Path;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-/**
- *
- */
-public class WebContainerFactory extends ContainerFactory<WebContainerFactory.Container> {
 
-    private final static String container_name = "figtest-web";
+public class WebContainerFactory extends ContainerFactory<WebContainerFactory.Container> {
 
     private volatile String imageId;
     private final RedisContainerFactory.Container redisContainer;
 
     public WebContainerFactory(RedisContainerFactory.Container redisContainer) {
-        super(container_name);
+        super("figtest-web");
         this.redisContainer = redisContainer;
     }
 
@@ -47,15 +43,15 @@ public class WebContainerFactory extends ContainerFactory<WebContainerFactory.Co
     }
 
     @Override
-    protected Container wrapContainer(DockerClient docker, HostConfig hostConfiguration, String containerId) throws Exception {
-        return new Container(docker, hostConfiguration, containerId);
+    protected Container wrapContainer(DockerClient docker, String containerId) throws Exception {
+        return new Container(docker, containerId);
     }
 
 
     public class Container extends ManagedContainer {
 
-        public Container(DockerClient docker, HostConfig hostConfiguration, String containerId) {
-            super(container_name, docker, hostConfiguration, containerId);
+        public Container(DockerClient docker, String containerId) {
+            super(docker, name(), containerId);
         }
 
         @Override

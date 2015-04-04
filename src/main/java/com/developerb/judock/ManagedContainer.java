@@ -4,7 +4,6 @@ import com.google.common.base.Optional;
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.LogStream;
 import com.spotify.docker.client.messages.ContainerInfo;
-import com.spotify.docker.client.messages.HostConfig;
 import com.spotify.docker.client.messages.NetworkSettings;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -32,12 +31,10 @@ public abstract class ManagedContainer {
 
     private final String containerName, containerId;
     private final DockerClient docker;
-    private final HostConfig hostConfiguration;
 
-    public ManagedContainer(String containerName, DockerClient docker, HostConfig hostConfiguration, String containerId) {
+    public ManagedContainer(DockerClient docker, String containerName, String containerId) {
         this.log = LoggerFactory.getLogger("container." + containerName);
 
-        this.hostConfiguration = hostConfiguration;
         this.containerName = containerName;
         this.containerId = containerId;
         this.docker = docker;
@@ -66,9 +63,7 @@ public abstract class ManagedContainer {
         }
     }
 
-    public void boot() throws Exception {
-        log.info("Booting container");
-        docker.startContainer(containerId, hostConfiguration);
+    public void waitForIt() throws Exception {
 
         log.info("Waiting for the container to boot");
         try (LogStream logStream = docker.logs(containerId, STDERR, STDOUT, TIMESTAMPS)) {

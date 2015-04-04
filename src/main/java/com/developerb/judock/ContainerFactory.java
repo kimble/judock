@@ -23,8 +23,12 @@ public abstract class ContainerFactory<C extends ManagedContainer> {
         this.containerName = containerName;
     }
 
+    protected String name() {
+        return containerName;
+    }
 
-    public C create(DockerClient docker) throws Exception {
+
+    public C launch(DockerClient docker) throws Exception {
         log.info("Preparing");
         prepare(docker);
 
@@ -39,14 +43,18 @@ public abstract class ContainerFactory<C extends ManagedContainer> {
         final ContainerConfig containerConfiguration = containerConfiguration(ContainerConfig.builder());
         final HostConfig hostConfiguration = hostConfiguration(HostConfig.builder());
         final ContainerCreation creation = docker.createContainer(containerConfiguration, containerName);
+        final String containerId = creation.id();
 
         if (creation.getWarnings() != null) {
             for (String warning : creation.getWarnings()) {
-                log.warn("Warning occurred while creating container {} [id: {}]: {}", containerName, creation.id().substring(0, 8), warning);
+                log.warn("Warning occurred while creating container {} [id: {}]: {}", containerName, containerId.substring(0, 8), warning);
             }
         }
 
-        return wrapContainer(docker, hostConfiguration, creation.id());
+        log.info("Booting container");
+        docker.startContainer(containerId, hostConfiguration);
+
+        return wrapContainer(docker, containerId);
     }
 
     /**
@@ -65,6 +73,6 @@ public abstract class ContainerFactory<C extends ManagedContainer> {
     /**
      * An option to provide client code for functionality exposed by the container.
      */
-    protected abstract C wrapContainer(DockerClient docker, HostConfig hostConfiguration, String containerId) throws Exception;
+    protected abstract C wrapContainer(DockerClient docker, String containerId) throws Exception;
 
 }
