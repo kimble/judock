@@ -25,8 +25,8 @@ public class FigtestTest {
                 new WebContainerFactory(redisContainer)
         );
 
-        assertEquals("Hello... I have been seen 2 times.", webContainer.httpGet("http://%s"));
-        assertEquals("Hello... I have been seen 3 times.", webContainer.httpGet("http://%s"));
+        assertEquals("Hello... I have been seen 2 times.", webContainer.fetchHtml());
+        assertEquals("Hello... I have been seen 3 times.", webContainer.fetchHtml());
     }
 
 }

@@ -57,7 +57,7 @@ public class WebContainerFactory extends ContainerFactory<WebContainerFactory.Co
         @Override
         protected void isReady(BootContext context) {
             try {
-                final String html = httpGet("http://%s/");
+                final String html = fetchHtml();
 
                 if (html.contains("Hello... I have been seen 1 times.")) {
                     context.ready(html);
@@ -74,6 +74,13 @@ public class WebContainerFactory extends ContainerFactory<WebContainerFactory.Co
                     context.tryAgain(2, SECONDS, "Trying again after exception - " + ex.getMessage());
                 }
             }
+        }
+
+        public String fetchHtml() {
+            return httpTarget()
+                    .path("/")
+                    .request()
+                    .get(String.class);
         }
 
     }

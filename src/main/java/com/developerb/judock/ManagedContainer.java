@@ -5,22 +5,21 @@ import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.LogStream;
 import com.spotify.docker.client.messages.ContainerInfo;
 import com.spotify.docker.client.messages.NetworkSettings;
-import org.apache.http.HttpEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.protocol.BasicHttpContext;
-import org.apache.http.util.EntityUtils;
+import org.glassfish.jersey.client.ClientConfig;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.WebTarget;
 import java.net.Socket;
 import java.util.concurrent.TimeUnit;
 
 import static com.spotify.docker.client.DockerClient.LogsParameter.*;
+import static org.glassfish.jersey.client.ClientProperties.CONNECT_TIMEOUT;
+import static org.glassfish.jersey.client.ClientProperties.READ_TIMEOUT;
 
 /**
  *
@@ -31,6 +30,7 @@ public abstract class ManagedContainer {
 
     private final String containerName, containerId;
     private final DockerClient docker;
+    private final Client httpClient;
 
     public ManagedContainer(DockerClient docker, String containerName, String containerId) {
         this.log = LoggerFactory.getLogger("container." + containerName);
@@ -38,6 +38,12 @@ public abstract class ManagedContainer {
         this.containerName = containerName;
         this.containerId = containerId;
         this.docker = docker;
+
+        ClientConfig clientConfig = new ClientConfig();
+        clientConfig.property(CONNECT_TIMEOUT, 1000);
+        clientConfig.property(READ_TIMEOUT, 10000);
+
+        this.httpClient = ClientBuilder.newClient(clientConfig);
     }
 
     public String containerName() {
@@ -46,25 +52,17 @@ public abstract class ManagedContainer {
 
     protected abstract void isReady(BootContext context);
 
-    public String httpGet(String format) {
-        String host = ipAddress();
-        String uri = String.format(format, host);
-
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpGet httpGet = new HttpGet(uri);
-
-            try (CloseableHttpResponse response = httpClient.execute(httpGet, new BasicHttpContext())) {
-                HttpEntity entity = response.getEntity();
-                return EntityUtils.toString(entity);
-            }
-        }
-        catch (Exception ex) {
-            throw new RuntimeException("Failed to get ", ex);
-        }
+    public WebTarget httpTarget() {
+        return httpTarget(80);
     }
 
-    public void waitForIt() throws Exception {
+    public WebTarget httpTarget(int port) {
+        String uri = String.format("http://%s:%d", ipAddress(), port);
+        return httpClient.target(uri);
+    }
 
+
+    public void waitForIt() throws Exception {
         log.info("Waiting for the container to boot");
         try (LogStream logStream = docker.logs(containerId, STDERR, STDOUT, TIMESTAMPS)) {
             BootContext context = new BootContext();
@@ -104,6 +102,18 @@ public abstract class ManagedContainer {
         return containerLogs;
     }
 
+
+    public void shutdown() {
+        try {
+            httpClient.close();
+        }
+        catch (Exception ex) {
+            log.warn("Failed to shut down http client", ex);
+        }
+
+        stop();
+        remove();
+    }
 
     public boolean stop() {
         try {
