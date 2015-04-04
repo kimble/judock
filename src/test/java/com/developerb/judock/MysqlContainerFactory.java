@@ -52,7 +52,7 @@ public class MysqlContainerFactory extends ContainerFactory<MysqlContainerFactor
     }
 
     @Override
-    protected Container createdContainer(DockerClient docker, String containerId) throws Exception {
+    protected Container wrapContainer(DockerClient docker, String containerId) throws Exception {
         return new Container(docker, containerId);
     }
 

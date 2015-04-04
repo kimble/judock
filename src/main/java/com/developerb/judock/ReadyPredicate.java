@@ -6,7 +6,12 @@ import org.joda.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 /**
- * @author Kim A. Betti
+ * A container is basically just a wrapper around a process and the fact
+ * that the process has been successfully forked does not mean that it's
+ * ready to do anything useful.
+ *
+ * By implementing this interface we can figure out when a container is
+ * ready to do useful work.
  */
 public interface ReadyPredicate {
 

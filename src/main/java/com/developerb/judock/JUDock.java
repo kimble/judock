@@ -13,9 +13,7 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Integration testing with Docker.
- *
- * @author Kim A. Betti
+ * Where JUnit meets Docker!
  */
 public class JUDock extends ExternalResource {
 

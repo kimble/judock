@@ -14,7 +14,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 /**
  * @author Kim A. Betti
  */
-public class ManagedContainer<C extends ManagedContainer> {
+public class ManagedContainer {
 
     private final Logger log;
 

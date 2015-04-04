@@ -44,7 +44,7 @@ public abstract class ContainerFactory<C extends ManagedContainer> {
             }
         }
 
-        return createdContainer(docker, creation.id());
+        return wrapContainer(docker, creation.id());
     }
 
     /**
@@ -63,6 +63,9 @@ public abstract class ContainerFactory<C extends ManagedContainer> {
      */
     protected abstract ReadyPredicate isReady(C managedContainer) throws Exception;
 
-    protected abstract C createdContainer(DockerClient docker, String containerId) throws Exception;
+    /**
+     * An option to provide client code for functionality exposed by the container.
+     */
+    protected abstract C wrapContainer(DockerClient docker, String containerId) throws Exception;
 
 }
