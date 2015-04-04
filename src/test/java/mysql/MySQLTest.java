@@ -1,5 +1,6 @@
-package com.developerb.judock;
+package mysql;
 
+import com.developerb.judock.JUDock;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -7,7 +8,7 @@ import java.sql.Connection;
 
 import static org.junit.Assert.assertNotNull;
 
-public class JUDockTest {
+public class MySQLTest {
 
     @Rule
     public JUDock jd = new JUDock();

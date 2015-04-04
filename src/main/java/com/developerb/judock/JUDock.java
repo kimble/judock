@@ -63,13 +63,11 @@ public class JUDock extends ExternalResource {
             iterator.remove();
 
             try {
-                log.info("Beginning: {}", cleanupTask.toString());
+                log.info("Running cleanup task");
                 cleanupTask.run();
-
-                log.info("Completed: {}", cleanupTask.toString());
             }
             catch (RuntimeException ex) {
-                log.error("Failed: {}", cleanupTask, ex);
+                log.error("Failed cleanup task", ex);
             }
         }
 

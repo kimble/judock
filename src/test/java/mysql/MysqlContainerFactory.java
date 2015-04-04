@@ -1,5 +1,8 @@
-package com.developerb.judock;
+package mysql;
 
+import com.developerb.judock.ContainerFactory;
+import com.developerb.judock.ManagedContainer;
+import com.developerb.judock.ReadyPredicate;
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.messages.ContainerConfig;
 

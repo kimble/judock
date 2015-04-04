@@ -28,7 +28,7 @@ public abstract class ContainerFactory<C extends ManagedContainer> {
         prepare(docker);
 
         for (Container container : docker.listContainers(allContainers())) {
-            if (container.names().contains("/" + containerName)) {
+            if (container.names() != null && container.names().contains("/" + containerName)) {
                 log.info("Removing existing container {} [id: {}]", containerName, container.id().substring(0, 8));
                 docker.stopContainer(container.id(), 2);
                 docker.removeContainer(container.id(), true);
