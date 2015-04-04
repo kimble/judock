@@ -19,16 +19,16 @@ repositories {
 group = 'com.developerb.judock'
 version = '0.4.9'
 
-sourceCompatibility = 1.7
-targetCompatibility = 1.7
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
 
 dependencies {
-    compile 'com.spotify:docker-client:2.7.0',
-            'joda-time:joda-time:2.5',
-            'junit:junit:4.11'
+    compile 'com.spotify:docker-client:2.7.19',
+            'joda-time:joda-time:2.7',
+            'junit:junit:4.12'
 
-    testCompile 'org.slf4j:slf4j-simple:1.7.7',
-                'mysql:mysql-connector-java:5.1.33'
+    testCompile 'org.slf4j:slf4j-simple:1.7.12',
+                'mysql:mysql-connector-java:5.1.35'
 }
 
 
