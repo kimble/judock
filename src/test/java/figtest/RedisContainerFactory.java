@@ -2,12 +2,10 @@ package figtest;
 
 import com.developerb.judock.ContainerFactory;
 import com.developerb.judock.ManagedContainer;
-import com.developerb.judock.ReadyPredicate;
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.messages.ContainerConfig;
 import com.spotify.docker.client.messages.HostConfig;
 
-import static java.lang.Enum.valueOf;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -38,15 +36,6 @@ public class RedisContainerFactory extends ContainerFactory<RedisContainerFactor
     }
 
     @Override
-    protected ReadyPredicate isReady(RedisContainerFactory.Container managedContainer) throws Exception {
-        return context -> managedContainer.canConnectTcp(6379)
-                ? ReadyPredicate.Result.success("Connected")
-                : context.runningForMoreThen(5, MINUTES)
-                        ? ReadyPredicate.Result.kill("Giving up")
-                        : ReadyPredicate.Result.tryAgain(2, SECONDS, "Trying again");
-    }
-
-    @Override
     protected RedisContainerFactory.Container wrapContainer(DockerClient docker, HostConfig hostConfiguration, String containerId) throws Exception {
         return new Container(docker, hostConfiguration, containerId);
     }
@@ -57,6 +46,20 @@ public class RedisContainerFactory extends ContainerFactory<RedisContainerFactor
             super(container_name, docker, hostConfiguration, containerId);
         }
 
+        @Override
+        protected void isReady(BootContext context) {
+            if (canConnectTcp(6379)) {
+                context.ready("Could connect on tcp");
+            }
+            else {
+                if (context.runningForMoreThen(1, MINUTES)) {
+                    context.failed("Took too long, giving up");
+                }
+                else {
+                    context.tryAgain(2, SECONDS, "Trying to re-connect soon");
+                }
+            }
+        }
     }
 
 }

@@ -2,8 +2,6 @@ package figtest;
 
 import com.developerb.judock.ContainerFactory;
 import com.developerb.judock.ManagedContainer;
-import com.developerb.judock.ReadyPredicate;
-import com.developerb.judock.ReadyPredicate.Result;
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.messages.ContainerConfig;
 import com.spotify.docker.client.messages.HostConfig;
@@ -49,30 +47,6 @@ public class WebContainerFactory extends ContainerFactory<WebContainerFactory.Co
     }
 
     @Override
-    protected ReadyPredicate isReady(Container managedContainer) throws Exception {
-        return context -> {
-            try {
-                final String html = managedContainer.httpGet("http://%s/");
-
-                if (html.contains("Hello... I have been seen 1 times.")) {
-                    return Result.success(html.trim());
-                }
-                else {
-                    return Result.kill("Unexpected message - " + html.trim());
-                }
-            }
-            catch (Exception ex) {
-                if (context.runningForMoreThen(60, SECONDS)) {
-                    return Result.kill("Been running too long - Giving up");
-                }
-                else {
-                    return Result.tryAgain(2, SECONDS, "Trying again after exception - " + ex.getMessage());
-                }
-            }
-        };
-    }
-
-    @Override
     protected Container wrapContainer(DockerClient docker, HostConfig hostConfiguration, String containerId) throws Exception {
         return new Container(docker, hostConfiguration, containerId);
     }
@@ -82,6 +56,28 @@ public class WebContainerFactory extends ContainerFactory<WebContainerFactory.Co
 
         public Container(DockerClient docker, HostConfig hostConfiguration, String containerId) {
             super(container_name, docker, hostConfiguration, containerId);
+        }
+
+        @Override
+        protected void isReady(BootContext context) {
+            try {
+                final String html = httpGet("http://%s/");
+
+                if (html.contains("Hello... I have been seen 1 times.")) {
+                    context.ready(html);
+                }
+                else {
+                    context.failed("Unexpected message - " + html.trim());
+                }
+            }
+            catch (Exception ex) {
+                if (context.runningForMoreThen(60, SECONDS)) {
+                    context.failed("Been running too long - Giving up");
+                }
+                else {
+                    context.tryAgain(2, SECONDS, "Trying again after exception - " + ex.getMessage());
+                }
+            }
         }
 
     }

@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 import static com.spotify.docker.client.DockerClient.ListContainersParam.allContainers;
 
 /**
- * 
+ *
  */
 public abstract class ContainerFactory<C extends ManagedContainer> {
 
@@ -61,11 +61,6 @@ public abstract class ContainerFactory<C extends ManagedContainer> {
     protected abstract ContainerConfig containerConfiguration(ContainerConfig.Builder docker);
 
     protected abstract HostConfig hostConfiguration(HostConfig.Builder cfg);
-
-    /**
-     * Will be invoked until the container is ready.
-     */
-    protected abstract ReadyPredicate isReady(C managedContainer) throws Exception;
 
     /**
      * An option to provide client code for functionality exposed by the container.

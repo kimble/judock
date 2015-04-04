@@ -2,15 +2,14 @@ package mysql;
 
 import com.developerb.judock.ContainerFactory;
 import com.developerb.judock.ManagedContainer;
-import com.developerb.judock.ReadyPredicate;
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.messages.ContainerConfig;
 import com.spotify.docker.client.messages.HostConfig;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 
@@ -40,25 +39,6 @@ public class MysqlContainerFactory extends ContainerFactory<MysqlContainerFactor
     }
 
     @Override
-    protected ReadyPredicate isReady(Container container) throws Exception {
-        return context -> {
-            log.info("Verifying whether the container is running or not");
-
-            try (Connection connection = container.open()) {
-                return ReadyPredicate.Result.success("Got connection to: " + connection.getMetaData().getDatabaseProductVersion());
-            }
-            catch (Exception ex) {
-                if (context.runningForMoreThen(5, MINUTES)) {
-                    return ReadyPredicate.Result.kill("Giving up now.. " + ex.getMessage());
-                }
-                else {
-                    return ReadyPredicate.Result.tryAgain(2, SECONDS, "Trying again (" + ex.getMessage() + ")");
-                }
-            }
-        };
-    }
-
-    @Override
     protected Container wrapContainer(DockerClient docker, HostConfig hostConfiguration, String containerId) throws Exception {
         return new Container(docker, hostConfiguration, containerId);
     }
@@ -69,6 +49,18 @@ public class MysqlContainerFactory extends ContainerFactory<MysqlContainerFactor
 
         public Container(DockerClient docker, HostConfig hostConfiguration, String containerId) throws Exception {
             super(container_name, docker, hostConfiguration, containerId);
+        }
+
+        @Override
+        protected void isReady(BootContext context) {
+            try (Connection connection = open()) {
+                DatabaseMetaData metadata = connection.getMetaData();
+                context.ready("Got connection: " + metadata.getDatabaseProductVersion());
+            }
+            catch (Exception ex) {
+                context.failed(ex);
+                context.tryAgain(3, SECONDS, ex.getMessage());
+            }
         }
 
         public Connection open() throws Exception {

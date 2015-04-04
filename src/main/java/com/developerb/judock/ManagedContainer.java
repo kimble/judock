@@ -1,6 +1,6 @@
 package com.developerb.judock;
 
-import com.developerb.judock.ReadyPredicate.Result;
+import com.google.common.base.Optional;
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.LogStream;
 import com.spotify.docker.client.messages.ContainerInfo;
@@ -13,18 +13,20 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.protocol.BasicHttpContext;
 import org.apache.http.util.EntityUtils;
+import org.joda.time.DateTime;
+import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.Socket;
+import java.util.concurrent.TimeUnit;
 
 import static com.spotify.docker.client.DockerClient.LogsParameter.*;
-import static java.util.concurrent.TimeUnit.*;
 
 /**
  *
  */
-public class ManagedContainer {
+public abstract class ManagedContainer {
 
     private final Logger log;
 
@@ -45,6 +47,8 @@ public class ManagedContainer {
         return containerName;
     }
 
+    protected abstract void isReady(BootContext context);
+
     public String httpGet(String format) {
         String host = ipAddress();
         String uri = String.format(format, host);
@@ -62,33 +66,30 @@ public class ManagedContainer {
         }
     }
 
-    public void boot(ReadyPredicate ready) throws Exception {
+    public void boot() throws Exception {
         log.info("Booting container");
         docker.startContainer(containerId, hostConfiguration);
 
         log.info("Waiting for the container to boot");
         try (LogStream logStream = docker.logs(containerId, STDERR, STDOUT, TIMESTAMPS)) {
-            ReadyPredicate.Context context = new ReadyPredicate.Context();
-            Result result = Result.tryAgain(100, MILLISECONDS, "first attempt");
+            BootContext context = new BootContext();
 
-            while (!result.shouldBeKilled() && !result.wasSuccessful()) {
+
+            while (context.stillWaiting()) {
                 try {
-                    result = ready.isReady(context);
+                    isReady(context);
+
+                    if (context.gracetime().isPresent()) {
+                        Thread.sleep(context.gracetime().get().getMillis());
+                    }
                 }
                 catch (Exception ex) {
-                    if (context.runningForMoreThen(10, MINUTES)) {
-                        result = Result.kill("Giving up");
-                    }
-                    else {
-                        result = Result.tryAgain(5, SECONDS, "Trying again");
-                    }
+                    log.error("Ready predicate should not throw exception", ex);
+                    context.failed(ex);
                 }
-
-                log.info("Result: {}", result.toString());
-                result.sleep();
             }
 
-            if (result.shouldBeKilled()) {
+            if (context.hasGivenUp()) {
                 String containerLogs = readLogStream(logStream);
                 throw new IllegalStateException(String.format("Container %s never reached 'running' before timeout, but %s.\n" +
                         "Following is the latest output from the container:\n%s", containerId, inspect().state(), containerLogs));
@@ -167,6 +168,60 @@ public class ManagedContainer {
         catch (Exception ex) {
             return false;
         }
+    }
+
+    public static class BootContext {
+
+        private final DateTime started;
+
+        private volatile Duration gracetime;
+        private volatile boolean givenUp;
+        private volatile boolean booted;
+        private volatile String message;
+
+        public BootContext() throws Exception {
+            this.started = DateTime.now();
+        }
+
+        public boolean runningForMoreThen(long val, TimeUnit unit) {
+            Duration other = new Duration(unit.toMillis(val));
+            Duration sinceStartup = new Duration(started, DateTime.now());
+            return sinceStartup.isLongerThan(other);
+        }
+
+        public boolean stillWaiting() {
+            return !booted && !givenUp;
+        }
+
+        public void failed(String reason) {
+            message = reason;
+            givenUp = true;
+        }
+
+        public void failed(Exception ex) {
+            message = ex.getMessage();
+            givenUp = true;
+        }
+
+        public void ready(String successMessage) {
+            message = successMessage;
+            booted = true;
+        }
+
+        public void tryAgain(int val, TimeUnit unit, String msg) {
+            gracetime = Duration.millis(unit.toMillis(val));
+            givenUp = false;
+            message = msg;
+        }
+
+        public Optional<Duration> gracetime() {
+            return Optional.fromNullable(gracetime);
+        }
+
+        public boolean hasGivenUp() {
+            return givenUp;
+        }
+
     }
 
 }

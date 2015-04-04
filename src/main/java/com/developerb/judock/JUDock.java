@@ -20,11 +20,14 @@ public class JUDock extends ExternalResource {
     private final static Logger log = LoggerFactory.getLogger(JUDock.class);
 
     private final List<Runnable> cleanupTasks = new ArrayList<>();
+
     private DockerClient docker;
 
 
     public JUDock() {
-        this(new DefaultDockerClient("http://localhost:2375"));
+        this (
+                new DefaultDockerClient("http://localhost:2375")
+        );
     }
 
     public JUDock(DockerClient docker) {
@@ -37,13 +40,10 @@ public class JUDock extends ExternalResource {
 
     public <C extends ManagedContainer> C manage(ContainerFactory<C> containerFactory) throws Exception {
         C managedContainer = containerFactory.create(docker);
-        ReadyPredicate ready = containerFactory.isReady(managedContainer);
-        managedContainer.boot(ready);
+        cleanupTasks.add(managedContainer::remove);
 
-        cleanupTasks.add(() -> {
-            managedContainer.stop();
-            managedContainer.remove();
-        });
+        managedContainer.boot();
+        cleanupTasks.add(managedContainer::stop);
 
         return managedContainer;
     }
